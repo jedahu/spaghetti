@@ -1,6 +1,6 @@
 # Spaghetti
 
-A simple state machine. Read the [docstrings](cljs/me/panzoo/spaghetti.cljs)
+A simple state machine. Read the [docstrings](./cljs/me/panzoo/spaghetti.cljs)
 for more information.
 
 
