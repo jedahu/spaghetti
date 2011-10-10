@@ -3,4 +3,4 @@
 
   :description "Finite State Machine"
 
-  :source-path "src/cljs")
+  :source-path "cljs/src")
