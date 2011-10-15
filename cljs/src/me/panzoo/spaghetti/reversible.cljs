@@ -8,10 +8,10 @@
   takes the same arguments as the callback of
   `me.panzoo.spaghetti/state-machine`."
   [history callback]
-  (fn [old trans new]
+  (fn [fsm old trans new]
     (swap! history
            (fn [hist]
-             ((or callback (constantly nil)) old trans new (peek hist))
+             ((or callback (constantly nil)) fsm old trans new (peek hist))
              (conj hist [trans old])))))
 
 (defn reversible-state-machine
@@ -51,7 +51,7 @@
                (swap! (:current fsm)
                       (fn [old-state]
                         ((:reverse-callback fsm)
-                           from-state trans @(:current fsm))
+                           fsm from-state trans @(:current fsm))
                         from-state))
                (if (seq hist)
                  (throw (s/fsm-error. :nonexistent))

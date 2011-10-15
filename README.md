@@ -12,7 +12,7 @@ A simple state machine. Read the docstrings for more information.
                {:closed {:open :opened}
                 :opened {:close :closed}}
                :error-state :you-swipe-at-empty-air
-               :callback (fn [old-state new-state]
+               :callback (fn [fsm old-state transition new-state]
                            (println "From " old-state " to " new-state))))
 
     (act fsm :open)

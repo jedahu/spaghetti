@@ -24,8 +24,8 @@
 
   :callback function
 
-  A function of three arguments, old-state, transition, and new-state. Called
-  after every transition."
+  A function of four arguments, state-machine, old-state, transition, and
+  new-state. Called after every transition."
   [start graph & {:as opts}]
   {:start start
    :callback (or (:callback opts) (constantly nil))
@@ -43,7 +43,7 @@
          (fn [old-state]
            (if-let [new-state (or (get-in @(:graph fsm) [old-state trans])
                                   (:error-state fsm))]
-             (do ((:callback fsm) old-state trans new-state)
+             (do ((:callback fsm) fsm old-state trans new-state)
                new-state)
              (throw (fsm-error. :nonexistent))))))
 
