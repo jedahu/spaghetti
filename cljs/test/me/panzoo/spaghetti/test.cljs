@@ -13,7 +13,7 @@
             :got_s {\p :success}
             :success {}}
            :error-state :error
-           :callback (fn [old trans new] (swap! result #(conj % new)))))
+           :callback (fn [sm old trans new] (swap! result #(conj % new)))))
 
 (doseq [c "lisp"] (s/act fsm c))
 (def r1 (first @result))
@@ -37,9 +37,9 @@
             :two {:next :three}
             :three {}}
            :callback
-           (fn [old trans new] (reset! result [old trans new]))
+           (fn [sm old trans new] (reset! result [old trans new]))
            :reverse-callback
-           (fn [old trans new] (reset! result [:back old trans new]))))
+           (fn [sm old trans new] (reset! result [:back old trans new]))))
 
 (s/act rsm :next)
 (s/act rsm :next)
