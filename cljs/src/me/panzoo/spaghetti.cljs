@@ -5,6 +5,8 @@
 
 (defrecord fsm-error [type])
 
+(declare reset)
+
 (defn state-machine
   "Construct a new state machine. Requires a `start` state and a state `graph`.
   The graph is a map where each state is a key whose value is a map of
@@ -22,28 +24,44 @@
   The state to switch to when an invalid transition is attempted. If absent
   or `nil` an error will be thrown instead.
 
-  :callback function
+  :callback function [args]
 
-  A function of four arguments, state-machine, old-state, transition, and
-  new-state. Called after every transition."
+  A function taking a single map, including at least these keys:
+  `:machine`, `:old-state`, `:transition`, and `:new-state`.  Called
+  after every transition.
+
+  The start state is automatically entered with a transition of
+  `:me.panzoo.spaghetti/reset` from an old state of `start`"
   [start graph & {:as opts}]
-  {:start start
-   :callback (or (:callback opts) (constantly nil))
-   :current (atom start)
-   :error-state (:error-state opts)
-   :graph (atom graph)})
+  (let [fsm {:start start
+             :callback (or (:callback opts) (constantly nil))
+             :current (atom nil)
+             :error-state (:error-state opts)
+             :graph (atom graph)}]
+    (reset fsm :state start :call-callback? true)
+    fsm))
 
 (defn act
   "Trigger the transition `trans` in the state machine `fsm`.  If the current
   state has no such transition an `fsm-error` will be thrown, unless the state
   machine has an error state, in which case the error state will be entered
-  instead."
-  [fsm trans]
+  instead.
+
+  `args` is a map to merge with the callback argument.
+  function."
+  [fsm trans & [{:as args}]]
   (swap! (:current fsm)
          (fn [old-state]
-           (if-let [new-state (or (get-in @(:graph fsm) [old-state trans])
-                                  (:error-state fsm))]
-             (do ((:callback fsm) fsm old-state trans new-state)
+           (if-let [new-state (if (fn? trans)
+                                (trans fsm args)
+                                (or (get-in @(:graph fsm) [old-state trans])
+                                    (:error-state fsm)))]
+             (do ((:callback fsm)
+                    (merge {:machine fsm
+                            :old-state old-state
+                            :transition trans
+                            :new-state new-state}
+                           args))
                new-state)
              (throw (fsm-error. :nonexistent))))))
 
@@ -76,11 +94,90 @@
 (defn reset
   "Reset the state machine. If present, `state` becomes the current state,
   otherwise the start state does. If call-callback? is true, the fsm callback
-  is called with a transition argument of `::reset`."
+  is called with a transition argument of `:me.panzoo.spaghetti/reset`."
   [fsm & {:keys [state call-callback?]}]
   (swap! (:current fsm)
          (fn [old-state]
            (let [new-state (or state (:start fsm))]
              (when call-callback?
-               ((:callback fsm) old-state ::reset new-state))
+               ((:callback fsm)
+                  {:machine fsm
+                   :old-state old-state
+                   :transition :me.panzoo.spaghetti/reset
+                   :new-state new-state}))
              new-state))))
+
+(defn history-callback
+  "Returns a `state-machine` callback that is called for both forwards and
+  \"backwards\" transitions. This function must be used in concert with
+  `back-transition`.
+
+  `history` must be an atom containing a vector or nil.
+
+  For forwards (normal) transitions, the created callback pushes `[transition
+  old-state]` pairs onto the `history` stack.
+
+  For backwards transitions, the latest pair is popped off the history stack
+  and used in the args map to `callback`, which then contains at least the
+  following keys:
+
+  :reverse? true
+
+  :old-state The current state.
+
+  :new-state The state from the top of the history stack.
+
+  :transition The transition from the top of the history stack. I.e. the one
+      that was used to get from new-state to old-state.
+
+  For a reset transition (`:me.panzoo.spaghetti/reset`) the history stack is
+  set to nil.
+
+  Note that `callback` is called before any history manipulation and takes the
+  same argument as the callback for `state-machine`."
+  [history back-fn callback]
+  (fn [{:keys [transition old-state new-state] :as args}]
+    (swap! history
+           (fn [hist]
+             (cond
+               (= back-fn transition)
+               (let [[trans _] (peek hist)]
+                 (callback (assoc args
+                                  :old-state new-state
+                                  :new-state old-state
+                                  :transition trans
+                                  :reverse? true))
+                 (pop hist))
+
+               (= :me.panzoo.spaghetti/reset transition)
+               (do (callback args)
+                   nil)
+
+               :else
+               (do (callback args)
+                   (conj hist [transition old-state])))))))
+
+(defn back-transition
+  "Creates a function which can be passed to `act` as a pseudo transition.
+  Designed to be used with `history-callback` and must take the same atom as
+  its `history` argument.
+
+  (def history (atom []))
+  (def back (back-transition history))
+  (def callback (history-callback history (fn [args] ....)))
+  (def fsm (state-machine :start <state-graph> :callback callback))
+
+  ;; Forwards
+  (act fsm :normal-transition)
+
+  ;; Backwards
+  (act fsm back)"
+  [history]
+  (fn [fsm & {:as args}]
+    (let [hist @history]
+      (if (seq hist)
+        (let [[trans state] (peek hist)]
+          (if (contains? @(:graph fsm) state)
+            state
+            (throw (fsm-error. :missing-state))))
+        (throw (fsm-error. :empty-history))))))

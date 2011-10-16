@@ -1,7 +1,6 @@
 (ns me.panzoo.spaghetti.test
   (:require
-    [me.panzoo.spaghetti :as s]
-    [me.panzoo.spaghetti.reversible :as r]))
+    [me.panzoo.spaghetti :as s]))
 
 (def result (atom []))
 
@@ -13,12 +12,16 @@
             :got_s {\p :success}
             :success {}}
            :error-state :error
-           :callback (fn [sm old trans new] (swap! result #(conj % new)))))
+           :callback (fn [{:keys [transition new-state]}]
+                       (when (not= :me.panzoo.spaghetti/reset transition)
+                         (swap! result #(conj % new-state))))))
+
+(assert (= :start (s/state fsm)))
 
 (doseq [c "lisp"] (s/act fsm c))
 (def r1 (first @result))
 (assert (= @result [:got_l :got_i :got_s :success])
-        (str (first @result) "FSM parsing failed."))
+        (str "." (first @result) "." (last @result) ". FSM parsing failed."))
 (reset! result [])
 (s/reset fsm)
 
@@ -30,16 +33,21 @@
 (assert (not (contains? @(:graph fsm) :got_i))
         "Remove state failed.")
 
-(def rsm (r/reversible-state-machine
+(def history (atom nil))
+(def back (s/back-transition history))
+(def rsm (s/state-machine
            :begin
            {:begin {:next :one}
             :one {:next :two}
             :two {:next :three}
             :three {}}
            :callback
-           (fn [sm old trans new] (reset! result [old trans new]))
-           :reverse-callback
-           (fn [sm old trans new] (reset! result [:back old trans new]))))
+           (s/history-callback
+             history back
+             (fn [{:keys [old-state transition new-state reverse?]}]
+               (if reverse?
+                 (reset! result [:back old-state transition new-state])
+                 (reset! result [old-state transition new-state]))))))
 
 (s/act rsm :next)
 (s/act rsm :next)
@@ -47,29 +55,34 @@
 (assert (= :three (s/state rsm)))
 (assert (= [:two :next :three] @result))
 
-(r/back rsm)
+(s/act rsm back)
 (assert (= :two (s/state rsm))
-        "Back failed.")
+        (str "Back failed." (s/state rsm)))
 (assert (= [:back :two :next :three] @result)
-        "Back failed.")
+        (apply str "Back failed." @result))
 
 (s/remove-state rsm :one)
 (assert (= :two (s/state rsm)))
 (assert (not (contains? @(:graph rsm) :one)))
 
 (assert
-  (try (r/back rsm) false
+  (try (s/act rsm back) false
     (catch s/fsm-error _ true))
   "Back failed to throw fsm-error.")
 
+(def history1 (atom nil))
 
-(def qsm (r/reversible-state-machine
+(def back1 (s/back-transition history1))
+
+(def qsm (s/state-machine
            :start
            {:start {:go :end}
-            :end {}}))
+            :end {}}
+           :callback
+           (s/history-callback history1 back1 (constantly nil))))
 
 (assert
-  (try (r/back qsm) false
+  (try (s/act qsm back1) false
     (catch s/fsm-error e
       (= :empty-history (:type e))))
   "Back failed to throw empty-history error.")
