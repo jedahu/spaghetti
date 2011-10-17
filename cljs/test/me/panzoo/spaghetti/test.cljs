@@ -1,7 +1,13 @@
 (ns me.panzoo.spaghetti.test
   (:require
-    [me.panzoo.spaghetti :as s])
+    [me.panzoo.spaghetti :as s]
+    [goog.Timer :as timer]
+    [goog.events :as events]
+    [goog.events.EventType :as event-type]
+    [goog.events.KeyHandler :as key-handler]
+    [goog.testing.events :as evt-test])
   (:use-macros
+    [me.panzoo.cluj.macros :only (timeout)]
     [me.panzoo.cluj.macros.phantom :only (passert)]))
 
 (def result (atom []))
@@ -102,4 +108,37 @@
 (passert (= 10 @result)
          "transition-data-callback failed.")
 
-(.exit js/phantom 0)
+(def window-kh (events/KeyHandler. js/window))
+
+(def esm (s/state-machine
+           :begin
+           {:begin {:click :a
+                    :key_a :a
+                    :key_x :x}
+            :a {:key_x :x
+                :click :begin}
+            :x {:key_a :a
+                :click :begin}}
+           :callback
+           (s/events-callback
+             {:click {:target js/window
+                      :type event-type/CLICK}
+              :key_x {:target window-kh
+                      :type (. key-handler/EventType KEY)
+                      :predicate #(= 88 (. % keyCode))}
+              :key_a {:target window-kh
+                      :type (. key-handler/EventType KEY)
+                      :predicate #(= 65 (. % keyCode))}}
+             (constantly nil))))
+
+(timeout
+  500
+  (evt-test/fireClickEvent js/window)
+  (passert (= :a (s/state esm)))
+  (evt-test/fireKeySequence js/window 88)
+  (passert (= :x (s/state esm)))
+  (evt-test/fireClickEvent js/window)
+  (passert (= :begin (s/state esm)))
+  (evt-test/fireKeySequence js/window 65)
+  (passert (= :a (s/state esm)))
+  (.exit js/phantom 0))

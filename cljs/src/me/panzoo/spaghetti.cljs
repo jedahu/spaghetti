@@ -1,7 +1,9 @@
 ;; # Finite State Machine
 ;;
 ;; A simple state machine.
-(ns me.panzoo.spaghetti)
+(ns me.panzoo.spaghetti
+  (:require
+    [goog.events :as events]))
 
 (defrecord fsm-error [type])
 
@@ -122,6 +124,66 @@
     (let [state-cb (or (state-callbacks new-state) (constantly nil))
           trans-cb (or (trans-callbacks transition) (constantly nil))]
       (state-cb (assoc args :transition-data (trans-cb args))))))
+
+(defn events-callback
+  "Returns a callback for use with `state-machine` which effectively turns the
+  result into an event driven state machine.
+
+  Takes a map from transition keys to event values and a callback which takes
+  the same argument as the `state-machine` callback.
+
+  When a new state is entered the events associated with its transitions are
+  listened to. When an event arrives the new state attached to that transition
+  is entered and all listeners are cancelled.
+
+  Each event value in `trans-evt-map` is a map with the following keys:
+
+  :target The event target (a `goog.events.EventTarget` or a DOM node).
+
+  :type The event type (e.g. `goog.events.EventType/CLICK`).
+
+  :predicate (optional) A predicate function with an event arg, which is used
+      to simulate a higher granularity event
+      (e.g. `(fn [evt] (= 43 (. evt charCode)))`).
+
+  :args (optional) A map of arguments to be passed to `act`."
+  [trans-evt-map callback]
+  (let [listener-keys (atom nil)]
+    (fn [{:keys [machine new-state] :as args}]
+      (callback args)
+      (swap! listener-keys
+             (fn [ks]
+               (doseq [k ks] (events/unlistenByKey k))
+               (loop [[[trans state] :as states] (@(:graph machine) new-state)
+                      acc []]
+                 (if (seq states)
+                   (recur (rest states)
+                          (if-let [evt (trans-evt-map trans)] 
+                            (let [trans trans] ; immutable binding
+                              (conj acc
+                                    (events/listen
+                                      (:target evt) (:type evt)
+                                      (if-let [pred (:predicate evt)]
+                                        (fn [e]
+                                          (when (pred e)
+                                            (act machine trans (:args evt))))
+                                        (fn [_]
+                                          (act machine trans (:args evt)))))))
+                            acc))
+                   acc))
+
+               ;; FIX why is for not working?
+               (comment for [[trans state] (@(:graph machine) new-state)
+                       :when (trans-evt-map trans)]
+                 (let [evt (trans-evt-map trans)]
+                   (events/listen
+                     (:target evt) (:type evt)
+                     (if-let [pred (:predicate evt)]
+                       (fn [_]
+                         (when (pred)
+                           (act machine trans (:args evt))))
+                       (fn [_]
+                         (act machine trans (:args evt))))))))))))
 
 (defn history-callback
   "Returns a `state-machine` callback that is called for both forwards and
