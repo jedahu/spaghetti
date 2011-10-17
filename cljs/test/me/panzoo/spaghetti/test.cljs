@@ -1,6 +1,8 @@
 (ns me.panzoo.spaghetti.test
   (:require
-    [me.panzoo.spaghetti :as s]))
+    [me.panzoo.spaghetti :as s])
+  (:use-macros
+    [me.panzoo.cluj.macros.phantom :only (passert)]))
 
 (def result (atom []))
 
@@ -16,22 +18,22 @@
                        (when (not= :me.panzoo.spaghetti/reset transition)
                          (swap! result #(conj % new-state))))))
 
-(assert (= :start (s/state fsm)))
+(passert (= :start (s/state fsm)))
 
 (doseq [c "lisp"] (s/act fsm c))
 (def r1 (first @result))
-(assert (= @result [:got_l :got_i :got_s :success])
-        (str "." (first @result) "." (last @result) ". FSM parsing failed."))
+(passert (= @result [:got_l :got_i :got_s :success])
+         (str "." (first @result) "." (last @result) ". FSM parsing failed."))
 (reset! result [])
 (s/reset fsm)
 
 (doseq [c "lips"] (s/act fsm c))
-(assert (= @result [:got_l :got_i :error :error])
-        "FSM error state failed.")
+(passert (= @result [:got_l :got_i :error :error])
+         "FSM error state failed.")
 
 (s/remove-state fsm :got_i)
-(assert (not (contains? @(:graph fsm) :got_i))
-        "Remove state failed.")
+(passert (not (contains? @(:graph fsm) :got_i))
+         "Remove state failed.")
 
 (def history (atom nil))
 (def back (s/back-transition history))
@@ -52,22 +54,22 @@
 (s/act rsm :next)
 (s/act rsm :next)
 (s/act rsm :next)
-(assert (= :three (s/state rsm)))
-(assert (= [:two :next :three] @result))
+(passert (= :three (s/state rsm)))
+(passert (= [:two :next :three] @result))
 
 (s/act rsm back)
-(assert (= :two (s/state rsm))
+(passert (= :two (s/state rsm))
         (str "Back failed." (s/state rsm)))
-(assert (= [:back :two :next :three] @result)
+(passert (= [:back :two :next :three] @result)
         (apply str "Back failed." @result))
 
 (s/remove-state rsm :one)
-(assert (= :two (s/state rsm)))
-(assert (not (contains? @(:graph rsm) :one)))
+(passert (= :two (s/state rsm)))
+(passert (not (contains? @(:graph rsm) :one)))
 
-(assert
-  (try (s/act rsm back) false
-    (catch s/fsm-error _ true))
+(passert
+  #(try (s/act rsm back) false
+     (catch s/fsm-error _ true))
   "Back failed to throw fsm-error.")
 
 (def history1 (atom nil))
@@ -81,8 +83,23 @@
            :callback
            (s/history-callback history1 back1 (constantly nil))))
 
-(assert
-  (try (s/act qsm back1) false
-    (catch s/fsm-error e
-      (= :empty-history (:type e))))
+(passert
+  #(try (s/act qsm back1) false
+     (catch s/fsm-error e
+       (= :empty-history (:type e))))
   "Back failed to throw empty-history error.")
+
+(def dsm (s/state-machine
+           :start
+           {:start {:next :end}
+            :end {}}
+           :callback
+           (s/transition-data-callback
+             {:next (constantly 5)}
+             {:end #(reset! result (* 2 (:transition-data %)))})))
+
+(s/act dsm :next)
+(passert (= 10 @result)
+         "transition-data-callback failed.")
+
+(.exit js/phantom 0)

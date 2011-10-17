@@ -3,4 +3,7 @@
 
   :description "Finite State Machine"
 
+  :dependencies
+  [[me.panzoo/cluj "0.0.1-SNAPSHOT"]]
+
   :source-path "cljs/src")

@@ -107,6 +107,22 @@
                    :new-state new-state}))
              new-state))))
 
+(defn transition-data-callback
+  "Takes two maps, one with transition keys, the other with state keys. Both
+  with function values. The functions take the same argument as the
+  `state-machine` callback.
+
+  Returns a callback for use with `state-machine`, which when called, calls the
+  function associated with the transition and then the function associated with
+  the new state. The return value from the transition function is made
+  available to the new-state function under the `:transition-data` key. Clear
+  as mud? The source is both shorter and easier to understand."
+  [trans-callbacks state-callbacks]
+  (fn [{:keys [new-state transition] :as args}]
+    (let [state-cb (or (state-callbacks new-state) (constantly nil))
+          trans-cb (or (trans-callbacks transition) (constantly nil))]
+      (state-cb (assoc args :transition-data (trans-cb args))))))
+
 (defn history-callback
   "Returns a `state-machine` callback that is called for both forwards and
   \"backwards\" transitions. This function must be used in concert with
