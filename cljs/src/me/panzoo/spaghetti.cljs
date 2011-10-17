@@ -51,7 +51,7 @@
 
   `args` is a map to merge with the callback argument.
   function."
-  [fsm trans & [{:as args}]]
+  [fsm trans & [args]]
   (swap! (:current fsm)
          (fn [old-state]
            (if-let [new-state (if (fn? trans)
@@ -123,6 +123,46 @@
     (let [trans-cb (or (trans-callbacks transition) (constantly nil))]
       (callback (assoc args :transition-data (trans-cb args))))))
 
+(defn- trans-listener-keys
+  [trans-evt-map {:keys [machine new-state]}]
+  ; FIX why is for not working?
+  (comment for [[trans state] (@(:graph machine) new-state)
+        :when (trans-evt-map trans)]
+    (let [evt (trans-evt-map trans)]
+      (events/listen
+        (:target evt) (:type evt)
+        (if-let [pred (:predicate evt)]
+          (fn [_]
+            (when (pred)
+              (act machine trans (:args evt))))
+          (fn [_]
+            (act machine trans (:args evt)))))))
+  (loop [[[trans state] :as states] (@(:graph machine) new-state)
+         acc []]
+    (if (seq states)
+      (recur (rest states)
+             (if-let [evt (trans-evt-map trans)] 
+               (let [trans trans] ; immutable binding
+                 (conj acc
+                       (events/listen
+                         (:target evt) (:type evt)
+                         (if-let [pred (:predicate evt)]
+                           (fn [e]
+                             (when (pred e)
+                               (act machine trans
+                                    (merge (:args evt)
+                                           {:event e}))))
+                           (fn [e]
+                             (act machine trans
+                                  (merge (:args evt)
+                                         {:event e})))))))
+               acc))
+      acc)))
+
+(defn- state-listener-keys
+  [state-listener-map args]
+  ((or (state-listener-map (:new-state args)) (constantly nil)) args))
+
 (defn events-callback
   "Returns a callback for use with `state-machine` which effectively turns the
   result into an event driven state machine.
@@ -156,42 +196,8 @@
         listener-keys
         (fn [ks]
           (doseq [k ks] (events/unlistenByKey k))
-          (concat
-            (loop [[[trans state] :as states] (@(:graph machine) new-state)
-                   acc []]
-              (if (seq states)
-                (recur (rest states)
-                       (if-let [evt (trans-evt-map trans)] 
-                         (let [trans trans] ; immutable binding
-                           (conj acc
-                                 (events/listen
-                                   (:target evt) (:type evt)
-                                   (if-let [pred (:predicate evt)]
-                                     (fn [e]
-                                       (when (pred e)
-                                         (act machine trans
-                                              (assoc (:args evt)
-                                                     :event e))))
-                                     (fn [e]
-                                       (act machine trans
-                                            (assoc (:args evt)
-                                                   :event e)))))))
-                         acc))
-                acc))
-            ((or (state-listener-map new-state) (constantly nil)) args))
-
-          ; FIX why is for not working?
-          (comment for [[trans state] (@(:graph machine) new-state)
-                :when (trans-evt-map trans)]
-            (let [evt (trans-evt-map trans)]
-              (events/listen
-                (:target evt) (:type evt)
-                (if-let [pred (:predicate evt)]
-                  (fn [_]
-                    (when (pred)
-                      (act machine trans (:args evt))))
-                  (fn [_]
-                    (act machine trans (:args evt))))))))))))
+          (concat (trans-listener-keys trans-evt-map args)
+                  (state-listener-keys state-listener-map args)))))))
 
 (defn history-callback
   "Returns a `state-machine` callback that is called for both forwards and
