@@ -1,0 +1,10 @@
+#!/bin/sh
+
+[ "$CLJS_WATCH" ] || CLJS_WATCH=cljs-watch
+
+compiler="$CLOJURESCRIPT_HOME/bin/cljsc"
+[ "$1" ] && compiler="$CLJS_WATCH"
+
+rm -r out
+
+exec "$compiler" cljs '{:output-to "out/testall.js" :output-dir "out" :optimizations :simple :externs ["externs.js"]}'

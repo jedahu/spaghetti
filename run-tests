@@ -8,12 +8,10 @@ if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
   exit 1
 fi
 
-[ "$JS" ] || JS=d8
+[ "$PHANTOM_JS" ] || PHANTOM_JS=phantomjs
 
 mkdir -p out
 if [ "$1" ]; then
-  "$CLOJURESCRIPT_HOME/bin/cljsc" cljs \
-    '{:output-dir "out" :output-to "out/testall.js" :optimizations :simple}' \
-    || exit 1
+  ./compile || exit 1
 fi
-"$JS" out/testall.js
+"$PHANTOM_JS" out/testall.js
