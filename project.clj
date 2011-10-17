@@ -1,5 +1,5 @@
 (defproject
-  me.panzoo/spaghetti "0.0.3"
+  me.panzoo/spaghetti "0.0.4-SNAPSHOT"
 
   :description "Finite State Machine"
 

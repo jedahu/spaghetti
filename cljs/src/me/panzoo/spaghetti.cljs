@@ -110,31 +110,31 @@
              new-state))))
 
 (defn transition-data-callback
-  "Takes two maps, one with transition keys, the other with state keys. Both
-  with function values. The functions take the same argument as the
+  "Takes a map with transition keys and function values, and a callback. The
+  values in the map and the callback take the same argument as the
   `state-machine` callback.
 
   Returns a callback for use with `state-machine`, which when called, calls the
-  function associated with the transition and then the function associated with
-  the new state. The return value from the transition function is made
-  available to the new-state function under the `:transition-data` key. Clear
-  as mud? The source is both shorter and easier to understand."
-  [trans-callbacks state-callbacks]
+  function associated with the transition and then the supplied callback. The
+  return value from the transition function is made available to the callback
+  under the `:transition-data` key."
+  [trans-callbacks callback]
   (fn [{:keys [new-state transition] :as args}]
-    (let [state-cb (or (state-callbacks new-state) (constantly nil))
-          trans-cb (or (trans-callbacks transition) (constantly nil))]
-      (state-cb (assoc args :transition-data (trans-cb args))))))
+    (let [trans-cb (or (trans-callbacks transition) (constantly nil))]
+      (callback (assoc args :transition-data (trans-cb args))))))
 
 (defn events-callback
   "Returns a callback for use with `state-machine` which effectively turns the
   result into an event driven state machine.
 
-  Takes a map from transition keys to event values and a callback which takes
+  Takes a map from transition keys to event values, a map from state keys to
+  function values, and a callback. The function values and the callback take
   the same argument as the `state-machine` callback.
 
   When a new state is entered the events associated with its transitions are
-  listened to. When an event arrives the new state attached to that transition
-  is entered and all listeners are cancelled.
+  listened to, and the function associated with the new state is called. The
+  function should return a list of listener keys. The listeners associated with
+  the previous state and transition are cancelled.
 
   Each event value in `trans-evt-map` is a map with the following keys:
 
@@ -146,44 +146,52 @@
       to simulate a higher granularity event
       (e.g. `(fn [evt] (= 43 (. evt charCode)))`).
 
-  :args (optional) A map of arguments to be passed to `act`."
-  [trans-evt-map callback]
+  :args (optional) A map of arguments to be passed to `act`. An
+      `:event <evemt>` pair will be added to this map."
+  [trans-evt-map state-listener-map callback]
   (let [listener-keys (atom nil)]
     (fn [{:keys [machine new-state] :as args}]
       (callback args)
-      (swap! listener-keys
-             (fn [ks]
-               (doseq [k ks] (events/unlistenByKey k))
-               (loop [[[trans state] :as states] (@(:graph machine) new-state)
-                      acc []]
-                 (if (seq states)
-                   (recur (rest states)
-                          (if-let [evt (trans-evt-map trans)] 
-                            (let [trans trans] ; immutable binding
-                              (conj acc
-                                    (events/listen
-                                      (:target evt) (:type evt)
-                                      (if-let [pred (:predicate evt)]
-                                        (fn [e]
-                                          (when (pred e)
-                                            (act machine trans (:args evt))))
-                                        (fn [_]
-                                          (act machine trans (:args evt)))))))
-                            acc))
-                   acc))
+      (swap!
+        listener-keys
+        (fn [ks]
+          (doseq [k ks] (events/unlistenByKey k))
+          (concat
+            (loop [[[trans state] :as states] (@(:graph machine) new-state)
+                   acc []]
+              (if (seq states)
+                (recur (rest states)
+                       (if-let [evt (trans-evt-map trans)] 
+                         (let [trans trans] ; immutable binding
+                           (conj acc
+                                 (events/listen
+                                   (:target evt) (:type evt)
+                                   (if-let [pred (:predicate evt)]
+                                     (fn [e]
+                                       (when (pred e)
+                                         (act machine trans
+                                              (assoc (:args evt)
+                                                     :event e))))
+                                     (fn [e]
+                                       (act machine trans
+                                            (assoc (:args evt)
+                                                   :event e)))))))
+                         acc))
+                acc))
+            ((or (state-listener-map new-state) (constantly nil)) args))
 
-               ;; FIX why is for not working?
-               (comment for [[trans state] (@(:graph machine) new-state)
-                       :when (trans-evt-map trans)]
-                 (let [evt (trans-evt-map trans)]
-                   (events/listen
-                     (:target evt) (:type evt)
-                     (if-let [pred (:predicate evt)]
-                       (fn [_]
-                         (when (pred)
-                           (act machine trans (:args evt))))
-                       (fn [_]
-                         (act machine trans (:args evt))))))))))))
+          ; FIX why is for not working?
+          (comment for [[trans state] (@(:graph machine) new-state)
+                :when (trans-evt-map trans)]
+            (let [evt (trans-evt-map trans)]
+              (events/listen
+                (:target evt) (:type evt)
+                (if-let [pred (:predicate evt)]
+                  (fn [_]
+                    (when (pred)
+                      (act machine trans (:args evt))))
+                  (fn [_]
+                    (act machine trans (:args evt))))))))))))
 
 (defn history-callback
   "Returns a `state-machine` callback that is called for both forwards and

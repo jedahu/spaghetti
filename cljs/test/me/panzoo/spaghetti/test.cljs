@@ -102,7 +102,7 @@
            :callback
            (s/transition-data-callback
              {:next (constantly 5)}
-             {:end #(reset! result (* 2 (:transition-data %)))})))
+             #(reset! result (* 2 (:transition-data %))))))
 
 (s/act dsm :next)
 (passert (= 10 @result)
@@ -129,6 +129,7 @@
               :key_a {:target window-kh
                       :type (. key-handler/EventType KEY)
                       :predicate #(= 65 (. % keyCode))}}
+             {}
              (constantly nil))))
 
 (timeout
