@@ -44,28 +44,28 @@
     fsm))
 
 (defn act
-  "Trigger the transition `trans` in the state machine `fsm`.  If the current
-  state has no such transition an `fsm-error` will be thrown, unless the state
-  machine has an error state, in which case the error state will be entered
-  instead.
+  "Trigger the transition `trans` in the state machine `fsm`. Returns the new
+  state. If the current state has no such transition `nil` will be returned,
+  unless the state machine has an error state, in which case the error state
+  will be entered and returned instead.
 
   `args` is a map to merge with the callback argument.
   function."
   [fsm trans & [args]]
   (swap! (:current fsm)
          (fn [old-state]
-           (if-let [new-state (if (fn? trans)
-                                (trans fsm args)
-                                (or (get-in @(:graph fsm) [old-state trans])
-                                    (:error-state fsm)))]
+           (when-let
+             [new-state (if (fn? trans)
+                          (trans fsm args)
+                          (or (get-in @(:graph fsm) [old-state trans])
+                              (:error-state fsm)))]
              (do ((:callback fsm)
                     (merge {:machine fsm
                             :old-state old-state
                             :transition trans
                             :new-state new-state}
                            args))
-               new-state)
-             (throw (fsm-error. :nonexistent))))))
+               new-state)))))
 
 (defn state
   "Get the current state."
@@ -253,6 +253,9 @@
   "Creates a function which can be passed to `act` as a pseudo transition.
   Designed to be used with `history-callback` and must take the same atom as
   its `history` argument.
+
+  Throws an `fsm-error` if the history stack is empty or if the state on the
+  top of the stack no longer exists.
 
   (def history (atom []))
   (def back (back-transition history))
