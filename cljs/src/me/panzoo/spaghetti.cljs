@@ -147,52 +147,56 @@
   under the `:transition-data` key."
   [trans-callbacks callback]
   (fn [{:keys [new-state transition] :as args}]
-    (let [trans-cb (or (trans-callbacks transition) (constantly nil))]
+    (let [trans-cb (or (get trans-callbacks transition) (constantly nil))]
       (callback (assoc args :transition-data (trans-cb args))))))
 
 (defn- trans-listener-keys
   [trans-evt-map {:keys [machine new-state]}]
-  ; `loop` because `for` was inexplicably returning `nil`.
-  (loop [[[trans state] :as states] (@(:graph machine) new-state)
-         acc []]
-    (if (seq states)
-      (recur (rest states)
-             (if-let [evt (trans-evt-map trans)] 
-               (let [trans trans] ; immutable binding
-                 (conj acc
-                       (events/listen
-                         (:target evt) (:type evt)
-                         (if-let [pred (:predicate evt)]
-                           (fn [e]
-                             (when (pred e)
-                               (act (root-machine machine) trans
-                                    (merge (:args evt)
-                                           {:event e}))))
-                           (fn [e]
-                             (act (root-machine machine) trans
-                                  (merge (:args evt)
-                                         {:event e})))))))
-               acc))
-      acc)))
+  (vec
+    (for [[trans state] (@(:graph machine) new-state)
+          {:keys [target type predicate default? args]} (trans-evt-map trans)]
+      (events/listen
+        target type
+        #(when (or (not predicate)
+                   (predicate %))
+           (when-not default?
+             (. % (preventDefault)))
+           (act (root-machine machine) trans
+                (assoc args :event %)))))))
 
 (defn- state-listener-keys
   [state-listener-map args]
-  ((or (state-listener-map (:new-state args)) (constantly nil)) args))
+  (vec
+    (for [{:keys [target type predicate default? callback]}
+          (get state-listener-map (:new-state args))]
+      (events/listen
+        target type
+        #(when (or (not predicate)
+                   (predicate %))
+           (when-not default?
+             (. % (preventDefault)))
+           (callback % (:transition-data args)))))))
 
 (defn events-callback
   "Returns a callback for use with `state-machine` which effectively turns the
   result into an event driven state machine.
 
-  Takes a map from transition keys to event values, a map from state keys to
-  function values, and a callback. The function values and the callback take
-  the same argument as the `state-machine` callback.
+  Takes a map from transition keys to sequences of events, a map from state
+  keys to function values, and a callback. The callback takes the same argument
+  as the `state-machine` callback. The functions take two arguments: a browser
+  event and a transition-data map (for use with `transition-data-callback`).
 
   When a new state is entered the events associated with its transitions are
   listened to, and the function associated with the new state is called. The
-  function should return a list of listener keys. The listeners associated with
-  the previous state and transition are cancelled.
+  function should return a sequence of event values; these are also listened
+  to. The listeners associated with the previous state and transition are
+  cancelled. When an event associated with a transition is intercepted, that
+  transition is triggered and this paragraph starts again.
 
-  Each event value in `trans-evt-map` is a map with the following keys:
+  When a transition is triggered the browser event that triggered it is added
+  to the `args` map under the key `:event`.
+
+  An event value is a map with the following keys:
 
   :target The event target (a `goog.events.EventTarget` or a DOM node).
 
@@ -202,8 +206,10 @@
       to simulate a higher granularity event
       (e.g. `(fn [evt] (= 43 (. evt charCode)))`).
 
-  :args (optional) A map of arguments to be passed to `act`. An
-      `:event <evemt>` pair will be added to this map."
+  :args (optional, only used for transitions) A map of arguments to be passed
+      to `act`.
+
+  :callback (only used for states) A function taking a single browser event."
   [trans-evt-map state-listener-map callback]
   (let [listener-keys (atom nil)]
     (fn [{:keys [machine new-state] :as args}]

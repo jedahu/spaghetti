@@ -121,23 +121,31 @@
                 :click :begin}}
            :callback
            (s/events-callback
-             {:click {:target js/window
-                      :type event-type/CLICK}
-              :key_x {:target window-kh
-                      :type (. key-handler/EventType KEY)
-                      :predicate #(= 88 (. % keyCode))}
-              :key_a {:target window-kh
-                      :type (. key-handler/EventType KEY)
-                      :predicate #(= 65 (. % keyCode))}}
-             {}
+             {:click [{:target js/window
+                       :type event-type/CLICK}]
+              :key_x [{:target window-kh
+                       :type (. key-handler/EventType KEY)
+                       :predicate #(= 88 (. % keyCode))}]
+              :key_a [{:target window-kh
+                       :type (. key-handler/EventType KEY)
+                       :predicate #(= 65 (. % keyCode))}]}
+             {:a [{:target window-kh
+                   :type (. key-handler/EventType KEY)
+                   :predicate #(not (#{88 65} (. % keyCode)))
+                   :callback (constantly (reset! result "state a"))}]}
              (constantly nil))))
 
 (timeout
   500
   (evt-test/fireClickEvent js/window)
   (passert (= :a (s/state esm)))
+  (evt-test/fireKeySequence js/window 87)
+  (passert (= "state a" @result))
+  (reset! result nil)
   (evt-test/fireKeySequence js/window 88)
   (passert (= :x (s/state esm)))
+  (evt-test/fireKeySequence js/window 87)
+  (passert (= nil @result))
   (evt-test/fireClickEvent js/window)
   (passert (= :begin (s/state esm)))
   (evt-test/fireKeySequence js/window 65)
