@@ -9,6 +9,12 @@
 
 (declare reset)
 
+(defrecord StateMachine [start callback graph])
+
+(defn state-machine?
+  [x]
+  (= StateMachine (. x constructor)))
+
 (defn state-machine
   "Construct a new state machine. Requires a `start` state and a state `graph`.
   The graph is a map where each state is a key whose value is a map of
@@ -35,11 +41,13 @@
   The start state is automatically entered with a transition of
   `:me.panzoo.spaghetti/reset` from an old state of `start`"
   [start graph & {:as opts}]
-  (let [fsm {:start start
-             :callback (or (:callback opts) (constantly nil))
-             :current (atom nil)
-             :error-state (:error-state opts)
-             :graph (atom graph)}]
+  (let [fsm (StateMachine.
+              start
+              (or (:callback opts) (constantly nil))
+              (atom graph)
+              nil
+              {:current (atom nil)
+               :error-state (:error-state opts)})]
     (reset fsm :state start :call-callback? true)
     fsm))
 
@@ -54,18 +62,21 @@
   [fsm trans & [args]]
   (swap! (:current fsm)
          (fn [old-state]
-           (when-let
-             [new-state (if (fn? trans)
-                          (trans fsm args)
-                          (or (get-in @(:graph fsm) [old-state trans])
-                              (:error-state fsm)))]
-             (do ((:callback fsm)
-                    (merge {:machine fsm
-                            :old-state old-state
-                            :transition trans
-                            :new-state new-state}
-                           args))
-               new-state)))))
+           (or (and (state-machine? old-state)
+                    (apply act old-state trans args)
+                    old-state)
+               (when-let
+                 [new-state (if (fn? trans)
+                              (trans fsm args)
+                              (or (get-in @(:graph fsm) [old-state trans])
+                                  (:error-state fsm)))]
+                 (do ((:callback fsm)
+                        (merge {:machine fsm
+                                :old-state old-state
+                                :transition trans
+                                :new-state new-state}
+                               args))
+                   new-state))))))
 
 (defn state
   "Get the current state."
