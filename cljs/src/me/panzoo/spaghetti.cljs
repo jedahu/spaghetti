@@ -48,7 +48,22 @@
               nil
               {:current (atom nil)
                :error-state (:error-state opts)})]
+    (swap! (:graph fsm)
+           (fn [g]
+             (into {}
+                   (for [[k v] g]
+                     [(if (state-machine? k)
+                        (assoc k :parent-machine fsm)
+                        k)
+                      v]))))
     (reset fsm :state start :call-callback? true)
+    fsm))
+
+(defn root-machine
+  "The top-level parent of state machine `fsm`."
+  [fsm]
+  (if-let [p (:parent-machine fsm)]
+    (recur p)
     fsm))
 
 (defn act
@@ -160,11 +175,11 @@
                          (if-let [pred (:predicate evt)]
                            (fn [e]
                              (when (pred e)
-                               (act machine trans
+                               (act (root-machine machine) trans
                                     (merge (:args evt)
                                            {:event e}))))
                            (fn [e]
-                             (act machine trans
+                             (act (root-machine machine) trans
                                   (merge (:args evt)
                                          {:event e})))))))
                acc))
