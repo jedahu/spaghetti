@@ -7,8 +7,8 @@
     [goog.events.KeyHandler :as key-handler]
     [goog.testing.events :as evt-test])
   (:use-macros
-    [me.panzoo.cluj.macros :only (timeout)]
-    [me.panzoo.cluj.macros.phantom :only (passert)]))
+    [me.panzoo.soup.macros :only (timeout)]
+    [me.panzoo.soup.macros.phantom :only (passert)]))
 
 (def result (atom []))
 

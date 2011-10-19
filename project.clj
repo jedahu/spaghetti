@@ -4,6 +4,6 @@
   :description "Finite State Machine"
 
   :dependencies
-  [[me.panzoo/cluj "0.0.1"]]
+  [[me.panzoo/soup "0.0.2"]]
 
   :source-path "cljs/src")
