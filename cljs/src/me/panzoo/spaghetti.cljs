@@ -9,10 +9,11 @@
 
 (declare reset)
 
-(defrecord StateMachine [start callback graph])
+(defrecord StateMachine
+  ;; Do not use this directly, use `state-machine` instead.
+  [start callback graph])
 
-(defn state-machine?
-  [x]
+(defn state-machine? [x]
   (instance? StateMachine x))
 
 (defn state-machine
@@ -151,18 +152,7 @@
 
 (defn- trans-listener-keys
   [trans-evt-map {:keys [machine new-state]}]
-  ; FIX why is for not working?
-  (comment for [[trans state] (@(:graph machine) new-state)
-        :when (trans-evt-map trans)]
-    (let [evt (trans-evt-map trans)]
-      (events/listen
-        (:target evt) (:type evt)
-        (if-let [pred (:predicate evt)]
-          (fn [_]
-            (when (pred)
-              (act machine trans (:args evt))))
-          (fn [_]
-            (act machine trans (:args evt)))))))
+  ; `loop` because `for` was inexplicably returning `nil`.
   (loop [[[trans state] :as states] (@(:graph machine) new-state)
          acc []]
     (if (seq states)
