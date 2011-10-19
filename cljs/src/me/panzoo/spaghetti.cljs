@@ -13,7 +13,7 @@
 
 (defn state-machine?
   [x]
-  (= StateMachine (. x constructor)))
+  (instance? StateMachine x))
 
 (defn state-machine
   "Construct a new state machine. Requires a `start` state and a state `graph`.
