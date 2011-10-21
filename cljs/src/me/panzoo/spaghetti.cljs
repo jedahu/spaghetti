@@ -145,37 +145,75 @@
   function associated with the transition and then the supplied callback. The
   return value from the transition function is made available to the callback
   under the `:transition-data` key."
-  [trans-callbacks callback]
-  (fn [{:keys [new-state transition] :as args}]
+  [trans-callbacks callback] (fn [{:keys [new-state transition] :as args}]
     (let [trans-cb (or (get trans-callbacks transition) (constantly nil))]
       (callback (assoc args :transition-data (trans-cb args))))))
 
+; Because `-hash` is not implemented for DOMWindow &co.
+(defn- target-syms [evts]
+  (loop [evts evts target-map {} done []]
+    (if-let [target (:target (first evts))]
+      (recur (rest evts)
+             (if (some #(= % target) done)
+               target-map
+               (assoc target-map (gensym) target))
+             (conj done target))
+      target-map)))
+
+; Because `-hash` is not implemented for DOMWindow &co.
+(defn- get-sym [targets target]
+  (loop [targets targets]
+    (if-let [[sym targ] (first targets)]
+      (if (= target targ)
+        sym
+        (recur (rest targets)))
+      nil)))
+
 (defn- trans-listener-keys
   [trans-evt-map {:keys [machine new-state]}]
-  (vec
-    (for [[trans state] (@(:graph machine) new-state)
-          {:keys [target type predicate default? args]} (trans-evt-map trans)]
-      (events/listen
-        target type
-        #(when (or (not predicate)
-                   (predicate %))
-           (when-not default?
-             (. % (preventDefault)))
-           (act (root-machine machine) trans
-                (assoc args :event %)))))))
+  (let [evts (vec (for [[trans state] (@(:graph machine) new-state)
+                        evt (get trans-evt-map trans)]
+                    (assoc evt :transition trans)))
+        targets (target-syms evts)]
+    (vec
+      (for [[[sym type] evts]
+            (group-by (fn [x] [(get-sym targets (:target x)) (:type x)]) evts)]
+        (events/listen
+          (targets sym) type
+          #(loop [[{:keys [predicate default?
+                           propagate? transition args] :as e} & evts]
+                  evts]
+             (if (or (not predicate)
+                     (predicate %))
+               (do
+                 (when-not default? (. % (preventDefault)))
+                 (when-not propagate? (. % (stopPropagation)))
+                 (act (root-machine machine) transition
+                      (assoc args :event %)))
+               (when (seq evts)
+                 (recur evts)))))))))
 
 (defn- state-listener-keys
-  [state-listener-map args]
+  [state-listener-map {:keys [transition-data new-state]}]
+  (let [evts (get state-listener-map new-state)
+        targets (target-syms evts)]
   (vec
-    (for [{:keys [target type predicate default? callback]}
-          (get state-listener-map (:new-state args))]
+    (for [[[sym type] evts]
+          (group-by
+            (fn [x] [(get-sym targets (:target x)) (:type x)])
+            evts)]
       (events/listen
-        target type
-        #(when (or (not predicate)
+        (targets sym) type
+        #(loop [[{:keys [predicate default? propagate? callback]} & evts]
+                evts]
+           (if (or (not predicate)
                    (predicate %))
-           (when-not default?
-             (. % (preventDefault)))
-           (callback % (:transition-data args)))))))
+             (do
+               (when-not default? (. % (preventDefault)))
+               (when-not propagate? (. % (stopPropagation)))
+               (callback % transition-data))
+             (when (seq evts)
+               (recur evts)))))))))
 
 (defn events-callback
   "Returns a callback for use with `state-machine` which effectively turns the
@@ -209,7 +247,9 @@
   :args (optional, only used for transitions) A map of arguments to be passed
       to `act`.
 
-  :callback (only used for states) A function taking a single browser event."
+  :callback (only used for states) A function taking a single browser event.
+  
+  Events for the same browser event type and target should not overlap."
   [trans-evt-map state-listener-map callback]
   (let [listener-keys (atom nil)]
     (fn [{:keys [machine new-state] :as args}]
