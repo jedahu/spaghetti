@@ -170,7 +170,7 @@
       nil)))
 
 (defn- trans-listener-keys
-  [trans-evt-map {:keys [machine new-state]}]
+  [trans-evt-map {:keys [machine new-state transition-data]}]
   (let [evts (vec (for [[trans state] (@(:graph machine) new-state)
                         evt (get trans-evt-map trans)]
                     (assoc evt :transition trans)))
@@ -189,7 +189,9 @@
                  (when-not default? (. % (preventDefault)))
                  (when-not propagate? (. % (stopPropagation)))
                  (act (root-machine machine) transition
-                      (assoc args :event %)))
+                      (assoc args
+                             :event %
+                             :transition-data transition-data)))
                (when (seq evts)
                  (recur evts)))))))))
 
