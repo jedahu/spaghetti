@@ -7,4 +7,4 @@ compiler="$CLOJURESCRIPT_HOME/bin/cljsc"
 
 rm -r out
 
-exec "$compiler" cljs '{:output-to "out/testall.js" :output-dir "out" :optimizations :simple :externs ["externs.js"]}'
+exec "$compiler" src '{:output-to "out/all.js" :output-dir "out" :optimizations :simple}'

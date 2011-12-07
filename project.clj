@@ -1,9 +1,9 @@
 (defproject
-  me.panzoo/spaghetti "0.0.5-SNAPSHOT"
+  me.panzoo/spaghetti "0.0.6-SNAPSHOT"
 
   :description "Finite State Machine"
 
   :dependencies
-  [[me.panzoo/soup "0.0.3-SNAPSHOT"]]
+  [[me.panzoo/jasmine "0.0.1-SNAPSHOT"]])
 
-  :source-path "cljs/src")
+;%include src/me/panzoo/spaghetti.cljs
