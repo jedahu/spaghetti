@@ -88,11 +88,6 @@
          :data nil})
     (restart :state start :call-callback? false)))
 
-(defn state
-  "Get the current state."
-  [fsm]
-  (:state @fsm))
-
 ;<?
 (check "state-machine"
   (let [graph {:on {:down :off}}
