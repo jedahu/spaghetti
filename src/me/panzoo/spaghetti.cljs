@@ -16,6 +16,12 @@
 
 (defrecord fsm-error [type])
 
+(defn make!fn
+  [f]
+  (fn [fsmr & args]
+    (swap! fsmr #(apply f % args))
+    nil))
+
 (defrecord StateMachine
   ;; Do not use this directly, use `state-machine` instead.
   [start callback graph])
@@ -30,15 +36,19 @@
   [fsm & args]
   (let [{:keys [state call-callback?]} (apply hash-map args)
         to-state (or state (:start fsm))
-        fsm* (assoc fsm :state to-state)]
-    (if call-callback?
-      (assoc
-        fsm* :data
-        ((:callback fsm)
-           {:from-state (:state fsm)
-            :transition ::restart
-            :to-state to-state}))
-      fsm*)))
+        maybe-call-callback (fn [f]
+                              (if call-callback?
+                                (assoc
+                                  f :data
+                                  ((:callback f)
+                                     {:from-state (:state fsm)
+                                      :transition ::restart
+                                      :to-state to-state}))
+                                f))]
+    (-> (assoc fsm :state to-state)
+        maybe-call-callback)))
+
+(def restart! (make!fn restart))
 
 (defn state-machine
   "Construct a new state machine. Requires a `start` state and a state `graph`.
@@ -66,17 +76,17 @@
   The start state is automatically entered with a transition of
   `::restart` from an old state of `start`"
   [start graph & {:as opts}]
-  (let [fsm (StateMachine.
-              start
-              (or (:callback opts) (constantly nil))
-              graph
-              nil
-              {:gensym (gensym)
-               :watchlist #{}
-               :state nil
-               :error (:error opts)
-               :data nil})]
-    (restart fsm :state start :call-callback? false)))
+  (-> (StateMachine.
+        start
+        (or (:callback opts) (constantly nil))
+        graph
+        nil
+        {:gensym (gensym)
+         :watchlist #{}
+         :state nil
+         :error (:error opts)
+         :data nil})
+    (restart :state start :call-callback? false)))
 
 (defn state
   "Get the current state."
@@ -126,6 +136,8 @@
                    :data (:data fsm)}
                   (apply hash-map args)))))))
 
+(def act! (make!fn act))
+
 ;<?
 (check "act"
   (let [err (atom nil)
@@ -150,17 +162,6 @@
       (expect toEqual :on (:state (act fsm :unknown)))
       (expect toEqual [:on :unknown nil] @err))))
 ;?>
-
-(defn restart!
-  ""
-  [fsmr & args]
-  (swap! fsmr #(apply restart! % args)))
-
-(defn act!
-  ""
-  [fsmr trans & args]
-  (swap! fsmr #(apply act % trans args))
-  nil)
 
 (defn watch-ref [fsmr trans r]
   (swap! fsmr (fn [fsm]
@@ -211,23 +212,23 @@
       (expect-not toEqual :z (:data @fsmr)))))
 ;?>
 
-#_(defn add-state
+(defn add-state
   "Add a new `state` to the state machine `fsm`. `transitions` is a map of
   transition keys to state values which are to be associated with `state`. If
   `state` already exists the new transitions will be merged with the existing
   ones."
-  [fsm state & {:as transitions}]
-  (swap! (:graph fsm)
-         (fn [old]
-           (update-in old [state] #(merge % transitions)))))
+  [fsm state transitions]
+  (update-in fsm [:graph state] #(merge % transitions)))
 
-#_(defn remove-state
+(defn remove-state
   "Remove a `state` from the state machine `fsm`. If `transition-keys` is
   supplied and even if it is empty, only those transitions are removed,
   otherwise the state and all associated transitions are removed."
-  [fsm state & transition-keys]
-  (swap! (:graph fsm)
-         (fn [old]
-           (if transition-keys
-             (update-in old [state] #(apply dissoc % transition-keys))
-             (dissoc old state)))))
+  ([fsm state transition-keys]
+   (update-in fsm [:graph state] #(apply dissoc % transition-keys)))
+  ([fsm state]
+   (update-in fsm [:graph] #(dissoc % state))))
+
+(def add-state! (make!fn add-state))
+
+(def remove-state! (make!fn remove-state))
