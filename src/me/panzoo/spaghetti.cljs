@@ -227,3 +227,32 @@
 (def add-state! (make!fn add-state))
 
 (def remove-state! (make!fn remove-state))
+
+;<?
+(check "add remove state"
+  (let [fsm (state-machine
+              :one
+              {:one {:incr :two}
+               :two {:incr :three
+                     :decr :one}})]
+    (it "should add state"
+      (expect toEqual
+              {:incr :four}
+              (get-in (add-state fsm :three {:incr :four})
+                      [:graph :three])))
+    (it "should merge transitions"
+      (expect toEqual
+              {:incr :two :decr :zero}
+              (get-in (add-state fsm :one {:decr :zero})
+                      [:graph :one])))
+    (it "should remove state"
+      (expect toEqual
+              nil
+              (get-in (remove-state fsm :two)
+                      [:graph :two])))
+    (it "should dissoc transitions"
+      (expect toEqual
+              {:decr :one}
+              (get-in (remove-state fsm :two [:incr])
+                      [:graph :two])))))
+;?>
