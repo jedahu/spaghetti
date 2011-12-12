@@ -5,17 +5,15 @@
 
   :description "Finite State Machine"
 
-; In production, Spaghetti has no external dependencies.
-  :dependencies
-  [
 ;<?
-; Testing depends on [me.panzoo/jasmine], which is a collection of macros that
-; wrap the [Jasmine] javascript test library.
+; Spaghetti's test code depends on [jasmine-clj], which is a collection of
+; macros that wrap the [Jasmine] javascript test library.
 ;
-; [me.panzoo/jasmine]: https://github.com/jedahu/jasmine-clj
+; [jasmine-clj]: https://github.com/jedahu/jasmine-clj
 ; [Jasmine]: https://github.com/pivotal/jasmine
-   [me.panzoo/jasmine "0.0.1-SNAPSHOT"]
+  :dependencies
+  [[me.panzoo/jasmine "0.0.1-SNAPSHOT"]]
 ;?>
-   ])
+  )
 
 ;%include src/me/panzoo/spaghetti.cljs
