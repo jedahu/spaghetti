@@ -3054,7 +3054,65 @@ div#master-toggle
               (get-in (remove-state fsm :two [:incr])
                       [:graph :two])))))</pre>
 </div>
-</section></article><div id='code-anchors'><ul><li>project.clj<br><ul><li><a href='#project.clj/spaghetti'>spaghetti</a></li></ul></li><li>src/me/panzoo/spaghetti.cljs<br><ul><li><a href='#src/me/panzoo/spaghetti.cljs/StateMachine'>StateMachine</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/act'>act</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/act!'>act!</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/add-state'>add-state</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/add-state!'>add-state!</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/check-state-machine'>check-state-machine</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/make!fn'>make!fn</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/remove-state'>remove-state</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/remove-state!'>remove-state!</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/restart'>restart</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/restart!'>restart!</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/state-machine'>state-machine</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/unwatch-all'>unwatch-all</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/unwatch-ref'>unwatch-ref</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/watch-ref'>watch-ref</a></li></ul></li></ul></div><script> // (inc clojure-brush) ;; an improved SyntaxHighlighter brush for clojure
+</section><section><a id='test.js/Testing'></a>
+<h1>Testing</h1><p>To test this project ensure that <a href="http://phantomjs.org">phantomjs</a> is installed, then compile the clojurescript to a single file <code>out/all.js</code>, then run the tests with <code>phantomjs test.js</code>.</p>
+<pre class='brush: javascript'>
+phantom.injectJs('jasmine/jasmine.js');
+phantom.injectJs('jasmine/ConsoleReporter.js');
+phantom.injectJs('out/all.js');
+
+var fs = require('fs');
+
+jasmine.getEnv().addReporter(
+    new jasmine.ConsoleReporter(
+      function(msg) { fs.write('/dev/stdout', msg, 'w'); },
+      function(runner) {
+        try {
+          if (runner.results().passed()) phantom.exit(0);
+          else phantom.exit(1);
+        } catch (e) {
+          phantom.exit(1);
+        }
+      }));
+jasmine.getEnv().execute();</pre>
+</section></article><div id='code-anchors'><ul><li>project.clj<br><ul><li><a href='#project.clj/spaghetti'>spaghetti</a></li></ul></li><li>src/me/panzoo/spaghetti.cljs<br><ul><li><a href='#src/me/panzoo/spaghetti.cljs/StateMachine'>StateMachine</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/act'>act</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/act!'>act!</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/add-state'>add-state</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/add-state!'>add-state!</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/check-state-machine'>check-state-machine</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/make!fn'>make!fn</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/remove-state'>remove-state</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/remove-state!'>remove-state!</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/restart'>restart</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/restart!'>restart!</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/state-machine'>state-machine</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/unwatch-all'>unwatch-all</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/unwatch-ref'>unwatch-ref</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/watch-ref'>watch-ref</a></li></ul></li></ul></div><script> ;(function()
+{
+	// CommonJS
+	typeof(require) != 'undefined' ? SyntaxHighlighter = require('shCore').SyntaxHighlighter : null;
+
+	function Brush()
+	{
+		var keywords =	'break case catch continue ' +
+						'default delete do else false  ' +
+						'for function if in instanceof ' +
+						'new null return super switch ' +
+						'this throw true try typeof var while with'
+						;
+
+		var r = SyntaxHighlighter.regexLib;
+		
+		this.regexList = [
+			{ regex: r.multiLineDoubleQuotedString,					css: 'string' },			// double quoted strings
+			{ regex: r.multiLineSingleQuotedString,					css: 'string' },			// single quoted strings
+			{ regex: r.singleLineCComments,							css: 'comments' },			// one line comments
+			{ regex: r.multiLineCComments,							css: 'comments' },			// multiline comments
+			{ regex: /\s*#.*/gm,									css: 'preprocessor' },		// preprocessor tags like #region and #endregion
+			{ regex: new RegExp(this.getKeywords(keywords), 'gm'),	css: 'keyword' }			// keywords
+			];
+	
+		this.forHtmlScript(r.scriptScriptTags);
+	};
+
+	Brush.prototype	= new SyntaxHighlighter.Highlighter();
+	Brush.aliases	= ['js', 'jscript', 'javascript'];
+
+	SyntaxHighlighter.brushes.JScript = Brush;
+
+	// CommonJS
+	typeof(exports) != 'undefined' ? exports.Brush = Brush : null;
+})();
+ </script>
+<script> // (inc clojure-brush) ;; an improved SyntaxHighlighter brush for clojure
 //
 // Copyright (C) 2011 Andrew Brehaut
 //
