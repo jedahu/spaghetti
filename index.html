@@ -2524,11 +2524,15 @@ a:hover
 
 article
 {
+  position: absolute;
+  z-index: 1;
   margin: 0;
-  margin-left: 12em;
+  margin-left: 11em;
   padding: 0;
+  padding-left: 1em;
   width: 38em;
   text-align: justify;
+  background-color: white;
 }
 
 article > h1
@@ -2564,7 +2568,7 @@ div#outline
 {
   position: fixed;
   top: 2em;
-  left: 0em;
+  left: 0.5em;
   width: 10em;
 }
 
@@ -2602,7 +2606,7 @@ div#code-anchors ul
   padding-left: 1em;
   padding-right: 0;
   list-style-type: none;
-  text-indent: -1em;
+  text-indent: -2em;
 }
 
 div#outline,
@@ -2668,6 +2672,94 @@ div#master-toggle
   [[me.panzoo/jasmine "0.0.1-SNAPSHOT"]]</pre>
 </div>
 <pre class='brush: clojure'>  )
+</pre>
+<a id='project.clj/Synopsis'></a>
+<h2>Synopsis</h2>
+<pre class='brush: clojure'>
+(use 'me.panzoo.spaghetti)
+
+(def fsm (atom
+           (state-machine
+             :closed
+             {:closed {:open :opened}
+              :opened {:close :closed}}
+             :missing (fn [{:keys [from-state transition]}]
+                        (.log js/console
+                              (str "There is no transition "
+                                   transition
+                                   " from "
+                                   from-state)))
+             :callback (fn [{:keys [old-state transition new-state}]
+                         (.log js/console
+                               (str "From "
+                                    from-state
+                                    " to "
+                                    to-state))))))
+
+(act! fsm :open)
+; From :closed to :opened
+
+(:state @fsm)
+; => :opened
+
+(act! fsm :close)
+; From :opened to :closed
+
+(:state @fsm)
+; => :closed
+
+(act! fsm :close)
+; There is no transition :close from :closed
+
+(:state @fsm)
+; => :closed
+
+(restart! fsm)
+(:state @fsm)
+; => :closed
+</pre>
+<a id='project.clj/Event-driven-transitions'></a>
+<h3>Event driven transitions</h3>
+<pre class='brush: clojure'>
+(require '[goog.events :as events])
+(require '[goog.events.EventType :as event-type])
+
+(swap! fsm #(assoc % :callback (fn [{:keys [transition event]}]
+                                 (.log js/console
+                                       (str transition
+                                            " because of button "
+                                            (. event button))))))
+
+(def click (atom nil))
+
+(events/listen
+  js/window event-type/CLICK
+  (fn [evt] (reset! click evt)))
+
+(watch-ref fsm :open click)
+
+; *left click*
+; :opened because of button 0
+
+; *right click*
+; :opened because of button 2
+</pre>
+<a id='project.clj/Add-and-remove-states-and-transitions'></a>
+<h3>Add and remove states and transitions</h3>
+<pre class='brush: clojure'>
+;; Already existing state (:opened).
+(add-state! fsm :opened {:open :broken-hinge})
+; Merges new transition with existing :opened transitions.
+
+;; New state.
+(add-state! fsm :broken-hinge {:fix :closed})
+: Adds new state with transitions.
+
+(remove-state! fsm :opened [:open])
+; Removes the listed transitions (:open) but not the state (:opened).
+
+(remove-state! fsm :opened)
+; Removes :opened state and all associated transitions.
 </pre>
 <section><a id='src/me/panzoo/spaghetti.cljs/The-code'></a>
 <h1>The code</h1><p>Spaghetti&rsquo;s core data structure is a record with immutable members. This makes implementing and testing core functionality a simple stateless affair. But this is not sufficient for a useful state machine given that it needs to store state. One way to provide this storage yet retain immutability is to use it with a state monad, but this wont do because the state machine may be driven by events and clojurescript does not have access to the browser&rsquo;s event loop. The solution this code uses is to store the data structure in an atom and generate mutating equivalents for the pure functions that operate on it.</p>
@@ -2845,8 +2937,8 @@ div#master-toggle
       (expect toEqual :on (:state (act fsm :unknown)))
       (expect toEqual [:on :unknown nil] @err))))</pre>
 </div>
-<a id='src/me/panzoo/spaghetti.cljs/Event-driven'></a>
-<h2>Event driven</h2><p>When events are mapped to transitions, the state machine becomes event driven. Spaghetti achieves this in two steps:</p>
+<a id='src/me/panzoo/spaghetti.cljs/Event-driven-transitions'></a>
+<h2>Event driven transitions</h2><p>When events are mapped to transitions, the state machine becomes event driven. Spaghetti achieves this in two steps:</p>
 <ol>
   <li>ref R is created and updated every time event E fires;</li>
   <li>a watch function is created from transition T of state machine atom M, and  is added to ref R.</li>
