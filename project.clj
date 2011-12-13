@@ -109,3 +109,4 @@
 ; </pre>
 ;
 ;%include src/me/panzoo/spaghetti.cljs
+;%include test.js
