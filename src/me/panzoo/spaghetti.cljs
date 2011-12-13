@@ -237,7 +237,7 @@
 ;?>
 
 
-; ## Event driven
+; ## Event driven transitions
 ;
 ; When events are mapped to transitions, the state machine becomes event
 ; driven. Spaghetti achieves this in two steps:
