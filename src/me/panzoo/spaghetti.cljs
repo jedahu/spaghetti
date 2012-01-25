@@ -242,16 +242,20 @@
 ; When events are mapped to transitions, the state machine becomes event
 ; driven. Spaghetti achieves this in two steps:
 ;
-; 1. ref R is created and updated every time event E fires;
+; 1. atomic ref R is created and updated every time event E fires;
 ; 2. a watch function is created from transition T of state machine atom M, and
 ;    is added to ref R.
 ;
-; The watch function is called whenever the content of ref A changes. It in
-; turn calls [[act!]] on M and T, with the new content of ref A appended under
+; The watch function is called whenever the content of ref R changes. It in
+; turn calls [[act!]] on M and T, with the new content of ref R appended under
 ; the `:event` key.
 ;
 ; (Clojurescript has only atom refs. If this code is ever ported to Clojure,
 ; hopefully little will need to change for STM refs and agents to work too.)
+;
+; The intermediary ref is not strictly necessary given that Clojurescript is
+; single threaded. That aside, having the state machine watch a ref can be
+; useful in other ways.
 ;
 ; Step one is left for client code to implement. Step two is performed by the
 ; `watch-ref` function.
