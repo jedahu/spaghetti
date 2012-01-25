@@ -12,7 +12,8 @@
 ; [jasmine-clj]: https://github.com/jedahu/jasmine-clj
 ; [Jasmine]: https://github.com/pivotal/jasmine
   :dependencies
-  [[me.panzoo/jasmine "0.0.1-SNAPSHOT"]]
+  [[org.clojure/clojure "1.3.0"]
+   [me.panzoo/jasmine "0.0.1-SNAPSHOT"]]
 ;?>
   )
 
