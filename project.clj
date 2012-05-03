@@ -1,21 +1,18 @@
 ;; # Spaghetti: a simple state machine
 ;;
 (defproject
-  me.panzoo/spaghetti "0.0.6-SNAPSHOT"
+  spaghetti "0.1.0-SNAPSHOT"
 
   :description "Finite State Machine"
 
-;;<?
-;; Spaghetti's test code depends on [jasmine-clj], which is a collection of
-;; macros that wrap the [Jasmine] javascript test library.
-;;
-;; [jasmine-clj]: https://github.com/jedahu/jasmine-clj
-;; [Jasmine]: https://github.com/pivotal/jasmine
-  :dependencies
-  [[org.clojure/clojure "1.3.0"]
-   [me.panzoo/jasmine "0.0.1-SNAPSHOT"]]
-;;?>
-  )
+  :dev-dependencies
+  [[menodora "0.1.4"]]
+
+  :plugins
+  [[lein-cst "0.2.4"]]
+
+  :cst
+  {:suites [spaghetti.test/core-tests]})
 
 ;; ## Synopsis
 ;;

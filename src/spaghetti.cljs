@@ -9,11 +9,11 @@
 ;; event loop. The solution this code uses is to store the data structure in an
 ;; atom and generate mutating equivalents for the pure functions that operate on
 ;; it.
-(ns me.panzoo.spaghetti
+(ns spaghetti
 
 ;; Only `cljs.core` is required by the production code.
 
-;;<?
+m;<?
 ;; The tests use a few macros.
   (:use-macros
     [me.panzoo.jasmine :only (check it expect expect-not before)])
