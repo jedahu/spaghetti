@@ -106,5 +106,4 @@
 ;; ; Removes :opened state and all associated transitions.
 ;; </pre>
 ;;
-;;%include src/me/panzoo/spaghetti.cljs
-;;%include test.js
+;%include src/me/panzoo/spaghetti.cljs
