@@ -11,6 +11,9 @@
   :plugins
   [[lein-cst "0.2.4"]]
 
+  :story
+  {:output "doc/index.html"}
+
   :cst
   {:suites [spaghetti.test/core-tests]})
 
