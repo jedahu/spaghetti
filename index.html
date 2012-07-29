@@ -2662,16 +2662,21 @@ div#master-toggle
 <h1>Spaghetti: a simple state machine</h1>
 <a id='project.clj/spaghetti'></a>
 <pre class='brush: clojure'>(defproject
-  me.panzoo/spaghetti "0.0.6-SNAPSHOT"
+  spaghetti "0.1.0-SNAPSHOT"
 
   :description "Finite State Machine"
-</pre>
-<div class='test'>
-<p>Spaghetti&rsquo;s test code depends on <a href="https://github.com/jedahu/jasmine-clj">jasmine-clj</a>, which is a collection of macros that wrap the <a href="https://github.com/pivotal/jasmine">Jasmine</a> javascript test library.</p>
-<pre class='brush: clojure'>  :dependencies
-  [[me.panzoo/jasmine "0.0.1-SNAPSHOT"]]</pre>
-</div>
-<pre class='brush: clojure'>  )
+
+  :dev-dependencies
+  [[menodora "0.1.4"]]
+
+  :plugins
+  [[lein-cst "0.2.4"]]
+
+  :story
+  {:output "doc/index.html"}
+
+  :cst
+  {:suites [spaghetti.test/core-tests]})
 </pre>
 <a id='project.clj/Synopsis'></a>
 <h2>Synopsis</h2>
@@ -2761,12 +2766,13 @@ div#master-toggle
 (remove-state! fsm :opened)
 ; Removes :opened state and all associated transitions.
 </pre>
-<section><a id='src/me/panzoo/spaghetti.cljs/The-code'></a>
+<section><a id='src/spaghetti.cljs/The-code'></a>
 <h1>The code</h1><p>Spaghetti&rsquo;s core data structure is a record with immutable members. This makes implementing and testing core functionality a simple stateless affair. But this is not sufficient for a useful state machine given that it needs to store state. One way to provide this storage yet retain immutability is to use it with a state monad, but this wont do because the state machine may be driven by events and clojurescript does not have access to the browser&rsquo;s event loop. The solution this code uses is to store the data structure in an atom and generate mutating equivalents for the pure functions that operate on it.</p>
-<pre class='brush: clojure'>(ns me.panzoo.spaghetti
+<pre class='brush: clojure'>(ns spaghetti
 </pre>
 <p>Only <code>cljs.core</code> is required by the production code.</p>
-<div class='test'>
+<pre class='brush: clojure'>
+m;&lt;?</pre>
 <p>The tests use a few macros.</p>
 <pre class='brush: clojure'>  (:use-macros
     [me.panzoo.jasmine :only (check it expect expect-not before)])</pre>
@@ -2774,14 +2780,14 @@ div#master-toggle
 <pre class='brush: clojure'>  )
 
 </pre>
-<a id='src/me/panzoo/spaghetti.cljs/Helpers'></a>
+<a id='src/spaghetti.cljs/Helpers'></a>
 <h2>Helpers</h2><p>The code for driving the state machine by events stores atoms in a set, which means they must implement the <code>-hash</code> method.</p>
 <pre class='brush: clojure'>(extend-type Atom
   IHash
   (-hash [o] (goog.getUid o)))
 </pre>
 <p><code>make!fn</code> takes a pure function and returns a function that atomically swaps the contents of its first argument (which must be an atom) using that pure function and the rest of its arguments.</p>
-<a id='src/me/panzoo/spaghetti.cljs/make!fn'></a>
+<a id='src/spaghetti.cljs/make!fn'></a>
 <pre class='brush: clojure'>(defn make!fn
   [f]
   (fn [a &amp; args]
@@ -2791,13 +2797,13 @@ div#master-toggle
 (declare restart)
 
 </pre>
-<a id='src/me/panzoo/spaghetti.cljs/State-machine'></a>
+<a id='src/spaghetti.cljs/State-machine'></a>
 <h2>State machine</h2><p>A state machine object is an instance of this record, whose only purpose is to enable the use of <code>instance?</code>. Don&rsquo;t use <code>StateMachine.</code> directly, use <code>state-machine</code> instead.</p>
-<a id='src/me/panzoo/spaghetti.cljs/StateMachine'></a>
+<a id='src/spaghetti.cljs/StateMachine'></a>
 <pre class='brush: clojure'>(defrecord StateMachine [graph])
 
 </pre>
-<a id='src/me/panzoo/spaghetti.cljs/Graph'></a>
+<a id='src/spaghetti.cljs/Graph'></a>
 <h3>Graph</h3><p>A state machine requires a state graph and a start state. The state graph is modeled as a map where each state is a key whose value is a map of transitions to states. E.g.:</p>
 <pre class='brush: clojure'>
 {:on {:down :off
@@ -2805,13 +2811,13 @@ div#master-toggle
  :off {:down :off
        :up :on}}
 </pre>
-<a id='src/me/panzoo/spaghetti.cljs/Transition-callback'></a>
+<a id='src/spaghetti.cljs/Transition-callback'></a>
 <h3>Transition callback</h3><p>By itself this graph does nothing, so a function is added that is called every time a transition is triggered. This callback function is passed a single map containing at least these four keys:</p><p><code>:from-state</code> The state the machine is switching from. <code>:transition</code> The transition precipitating the switch. <code>:to-state</code> The state the machine is switching to. <code>:data</code> What the previous invocation of this callback returned.</p><p>More key-value pairs can be added by client code.</p>
-<a id='src/me/panzoo/spaghetti.cljs/Missing-transition-callback'></a>
+<a id='src/spaghetti.cljs/Missing-transition-callback'></a>
 <h3>Missing transition callback</h3><p>The usual behaviour for a state machine when a non-existant transition is triggered, is to just ignore it, make it a no-op. It can be convenient for logging and testing purposes to keep track of these missing transitions. Thus whenever a transition is attempted which does not exist, a function is called with the same arguments as the transition callback, but its return value is ignored.</p>
-<a id='src/me/panzoo/spaghetti.cljs/Putting-it-all-together'></a>
-<h3>Putting it all together</h3><p>The <code>state-machine</code> function creates a new <a href="#src/me/panzoo/spaghetti.cljs/StateMachine">StateMachine</a> record using the supplied <code>start</code> state and state <code>graph</code>. It takes a list of key-value options including a transition callback under the <code>:callback</code> key, and a missing transition callback under the <code>:missing</code> key.</p>
-<a id='src/me/panzoo/spaghetti.cljs/state-machine'></a>
+<a id='src/spaghetti.cljs/Putting-it-all-together'></a>
+<h3>Putting it all together</h3><p>The <code>state-machine</code> function creates a new <a href="#src/spaghetti.cljs/StateMachine">StateMachine</a> record using the supplied <code>start</code> state and state <code>graph</code>. It takes a list of key-value options including a transition callback under the <code>:callback</code> key, and a missing transition callback under the <code>:missing</code> key.</p>
+<a id='src/spaghetti.cljs/state-machine'></a>
 <pre class='brush: clojure'>(defn state-machine
   [start graph &amp; opts]
   (let [opts (apply hash-map opts)]
@@ -2828,14 +2834,14 @@ div#master-toggle
 <p>The current state is stored under the <code>:state</code> key.</p>
 <pre class='brush: clojure'>           :state nil
 </pre>
-<p>This gensym value can be used to determine whether <code>not=</code> StateMachines are persistent variants of each other. It is also used as a watch key by <a href="#src/me/panzoo/spaghetti.cljs/watch-ref">watch-ref</a>.</p>
+<p>This gensym value can be used to determine whether <code>not=</code> StateMachines are persistent variants of each other. It is also used as a watch key by <a href="#src/spaghetti.cljs/watch-ref">watch-ref</a>.</p>
 <pre class='brush: clojure'>           :gensym (gensym)})
 </pre>
 <p>The start state is automatically entered with a transition of <code>::restart</code> from a <code>:from-state</code> of <code>start</code></p>
 <pre class='brush: clojure'>      (restart :state start))))
 </pre>
 <div class='test'>
-<a id='src/me/panzoo/spaghetti.cljs/check-state-machine'></a>
+<a id='src/spaghetti.cljs/check-state-machine'></a>
 <pre class='brush: clojure'>(defn check-state-machine
   []
   (check "state-machine"
@@ -2846,16 +2852,16 @@ div#master-toggle
       (it "should start in the start state"
         (expect toEqual :on (:state fsm))))))</pre>
 </div>
-<a id='src/me/panzoo/spaghetti.cljs/Actions-on-a-state-machine'></a>
+<a id='src/spaghetti.cljs/Actions-on-a-state-machine'></a>
 <h2>Actions on a state machine</h2>
-<a id='src/me/panzoo/spaghetti.cljs/Restart'></a>
+<a id='src/spaghetti.cljs/Restart'></a>
 <h3>Restart</h3><p>A state machine can be reset to its start state or any other state. The <code>restart</code> function handles this. It takes a state machine and two optional key-value arguments and returns a modified machine.</p>
-<a id='src/me/panzoo/spaghetti.cljs/restart'></a>
+<a id='src/spaghetti.cljs/restart'></a>
 <pre class='brush: clojure'>(defn restart
   [fsm &amp; args]
   (let [{:keys [state call-callback?]} (apply hash-map args)
 </pre>
-<p>If present, the <code>:state</code> option becomes the current state, otherwise the start state set by <a href="#src/me/panzoo/spaghetti.cljs/state-machine">state-machine</a> does.</p>
+<p>If present, the <code>:state</code> option becomes the current state, otherwise the start state set by <a href="#src/spaghetti.cljs/state-machine">state-machine</a> does.</p>
 <pre class='brush: clojure'>        to-state (or state (:start fsm))
 </pre>
 <p>If the <code>:call-callback?</code> option is true, the transition callback is called with a <code>:transition</code> argument of <code>::restart</code>.</p>
@@ -2874,16 +2880,16 @@ div#master-toggle
         maybe-call-callback)))
 </pre>
 <p><code>restart!</code> is a mutating variant of <code>restart</code>.</p>
-<a id='src/me/panzoo/spaghetti.cljs/restart!'></a>
+<a id='src/spaghetti.cljs/restart!'></a>
 <pre class='brush: clojure'>(def restart! (make!fn restart))
 </pre>
 <div class='test'>
-<p>The <a href="#src/me/panzoo/spaghetti.cljs/state-machine">state-machine</a> function is tested here because it requires <a href="#src/me/panzoo/spaghetti.cljs/restart">restart</a> to be defined.</p>
+<p>The <a href="#src/spaghetti.cljs/state-machine">state-machine</a> function is tested here because it requires <a href="#src/spaghetti.cljs/restart">restart</a> to be defined.</p>
 <pre class='brush: clojure'>(check-state-machine)</pre>
 </div>
-<a id='src/me/panzoo/spaghetti.cljs/Act'></a>
-<h3>Act</h3><p>The state machine requires a mechanism for triggering transitions and calling the callbacks described in the <a href="#src/me/panzoo/spaghetti.cljs/State-machine">State machine</a> section. <code>act</code> is a pure function that triggers a transition on a state machine and returns the new machine. If the transition exists, the machine&rsquo;s <a href="#src/me/panzoo/spaghetti.cljs/Transition-callback">Transition callback</a> will be called and its return value stored under the machine&rsquo;s <code>:data</code> key, otherwise the <a href="#src/me/panzoo/spaghetti.cljs/Missing-transition-callback">Missing transition callback</a> will be called instead.</p>
-<a id='src/me/panzoo/spaghetti.cljs/act'></a>
+<a id='src/spaghetti.cljs/Act'></a>
+<h3>Act</h3><p>The state machine requires a mechanism for triggering transitions and calling the callbacks described in the <a href="#src/spaghetti.cljs/State-machine">State machine</a> section. <code>act</code> is a pure function that triggers a transition on a state machine and returns the new machine. If the transition exists, the machine&rsquo;s <a href="#src/spaghetti.cljs/Transition-callback">Transition callback</a> will be called and its return value stored under the machine&rsquo;s <code>:data</code> key, otherwise the <a href="#src/spaghetti.cljs/Missing-transition-callback">Missing transition callback</a> will be called instead.</p>
+<a id='src/spaghetti.cljs/act'></a>
 <pre class='brush: clojure'>(defn act
   [fsm trans &amp; args]
 </pre>
@@ -2910,7 +2916,7 @@ div#master-toggle
         fsm))))
 </pre>
 <p><code>act!</code> is a mutating variant of <code>act</code>.</p>
-<a id='src/me/panzoo/spaghetti.cljs/act!'></a>
+<a id='src/spaghetti.cljs/act!'></a>
 <pre class='brush: clojure'>(def act! (make!fn act))
 </pre>
 <div class='test'>
@@ -2937,13 +2943,13 @@ div#master-toggle
       (expect toEqual :on (:state (act fsm :unknown)))
       (expect toEqual [:on :unknown nil] @err))))</pre>
 </div>
-<a id='src/me/panzoo/spaghetti.cljs/Event-driven-transitions'></a>
+<a id='src/spaghetti.cljs/Event-driven-transitions'></a>
 <h2>Event driven transitions</h2><p>When events are mapped to transitions, the state machine becomes event driven. Spaghetti achieves this in two steps:</p>
 <ol>
-  <li>ref R is created and updated every time event E fires;</li>
+  <li>atomic ref R is created and updated every time event E fires;</li>
   <li>a watch function is created from transition T of state machine atom M, and  is added to ref R.</li>
-</ol><p>The watch function is called whenever the content of ref A changes. It in turn calls <a href="#src/me/panzoo/spaghetti.cljs/act!">act!</a> on M and T, with the new content of ref A appended under the <code>:event</code> key.</p><p>(Clojurescript has only atom refs. If this code is ever ported to Clojure, hopefully little will need to change for STM refs and agents to work too.)</p><p>Step one is left for client code to implement. Step two is performed by the <code>watch-ref</code> function.</p>
-<a id='src/me/panzoo/spaghetti.cljs/watch-ref'></a>
+</ol><p>The watch function is called whenever the content of ref R changes. It in turn calls <a href="#src/spaghetti.cljs/act!">act!</a> on M and T, with the new content of ref R appended under the <code>:event</code> key.</p><p>(Clojurescript has only atom refs. If this code is ever ported to Clojure, hopefully little will need to change for STM refs and agents to work too.)</p><p>The intermediary ref is not strictly necessary given that Clojurescript is single threaded. That aside, having the state machine watch a ref can be useful in other ways.</p><p>Step one is left for client code to implement. Step two is performed by the <code>watch-ref</code> function.</p>
+<a id='src/spaghetti.cljs/watch-ref'></a>
 <pre class='brush: clojure'>(defn watch-ref
   [fsmr trans r]
   (swap! fsmr (fn [fsm]
@@ -2952,12 +2958,12 @@ div#master-toggle
 <pre class='brush: clojure'>                   (add-watch r (:gensym fsm)
                               #(act! fsmr trans :event %4))
 </pre>
-<p>The reference <code>r</code> is added to the watchlist primarily to facilitate easy unwatching of all references (by <a href="#src/me/panzoo/spaghetti.cljs/unwatch-all">unwatch-all</a>) when the state machine is no longer needed. Note that the watchlist is actually a set.</p>
+<p>The reference <code>r</code> is added to the watchlist primarily to facilitate easy unwatching of all references (by <a href="#src/spaghetti.cljs/unwatch-all">unwatch-all</a>) when the state machine is no longer needed. Note that the watchlist is actually a set.</p>
 <pre class='brush: clojure'>                   (update-in fsm [:watchlist] #(conj (or % #{}) r))))
   nil)
 </pre>
 <p>References can be unwatched singly.</p>
-<a id='src/me/panzoo/spaghetti.cljs/unwatch-ref'></a>
+<a id='src/spaghetti.cljs/unwatch-ref'></a>
 <pre class='brush: clojure'>(defn unwatch-ref
   [fsmr r]
   (swap! fsmr (fn [fsm]
@@ -2966,7 +2972,7 @@ div#master-toggle
   nil)
 </pre>
 <p>Or they can be unwatched all at once.</p>
-<a id='src/me/panzoo/spaghetti.cljs/unwatch-all'></a>
+<a id='src/spaghetti.cljs/unwatch-all'></a>
 <pre class='brush: clojure'>(defn unwatch-all
   [fsmr]
   (swap! fsmr (fn [fsm]
@@ -3003,15 +3009,15 @@ div#master-toggle
       (expect toEqual :off (:state @fsmr))
       (expect-not toEqual :z (:data @fsmr)))))</pre>
 </div>
-<a id='src/me/panzoo/spaghetti.cljs/Modifying-the-graph'></a>
-<h2>Modifying the graph</h2><p>It can be useful for states and transitions to be added on the fly. The two pure functions <a href="#src/me/panzoo/spaghetti.cljs/add-state">add-state</a> and <a href="#src/me/panzoo/spaghetti.cljs/remove-state">remove-state</a> take care of this, along with their mutating counterparts <a href="#src/me/panzoo/spaghetti.cljs/add-state!">add-state!</a> and <a href="#src/me/panzoo/spaghetti.cljs/remove-state!">remove-state!</a>.</p><p><code>add-state</code> adds a new state to a state machine. It also takes a map of transitions to destination states. These transitions will be merged with the existing transitions for the new state (if any).</p>
-<a id='src/me/panzoo/spaghetti.cljs/add-state'></a>
+<a id='src/spaghetti.cljs/Modifying-the-graph'></a>
+<h2>Modifying the graph</h2><p>It can be useful for states and transitions to be added on the fly. The two pure functions <a href="#src/spaghetti.cljs/add-state">add-state</a> and <a href="#src/spaghetti.cljs/remove-state">remove-state</a> take care of this, along with their mutating counterparts <a href="#src/spaghetti.cljs/add-state!">add-state!</a> and <a href="#src/spaghetti.cljs/remove-state!">remove-state!</a>.</p><p><code>add-state</code> adds a new state to a state machine. It also takes a map of transitions to destination states. These transitions will be merged with the existing transitions for the new state (if any).</p>
+<a id='src/spaghetti.cljs/add-state'></a>
 <pre class='brush: clojure'>(defn add-state
   [fsm state transition-map]
   (update-in fsm [:graph state] #(merge % transition-map)))
 </pre>
 <p><code>remove-state</code> removes a state from a state machine. It takes an optional list of transitions. If that list is supplied, and even if it is empty, only the transitions in the list are removed, otherwise the state and all its transitions are removed.</p>
-<a id='src/me/panzoo/spaghetti.cljs/remove-state'></a>
+<a id='src/spaghetti.cljs/remove-state'></a>
 <pre class='brush: clojure'>(defn remove-state
   ([fsm state transitions]
    (update-in fsm [:graph state] #(apply dissoc % transitions)))
@@ -3019,11 +3025,11 @@ div#master-toggle
    (update-in fsm [:graph] #(dissoc % state))))
 </pre>
 <p><code>add-state!</code> is a mutating variant of <code>add-state</code>.</p>
-<a id='src/me/panzoo/spaghetti.cljs/add-state!'></a>
+<a id='src/spaghetti.cljs/add-state!'></a>
 <pre class='brush: clojure'>(def add-state! (make!fn add-state))
 </pre>
 <p><code>remove-state!</code> is a mutating variant of <code>remove-state</code>.</p>
-<a id='src/me/panzoo/spaghetti.cljs/remove-state!'></a>
+<a id='src/spaghetti.cljs/remove-state!'></a>
 <pre class='brush: clojure'>(def remove-state! (make!fn remove-state))
 </pre>
 <div class='test'>
@@ -3054,65 +3060,7 @@ div#master-toggle
               (get-in (remove-state fsm :two [:incr])
                       [:graph :two])))))</pre>
 </div>
-</section><section><a id='test.js/Testing'></a>
-<h1>Testing</h1><p>To test this project ensure that <a href="http://phantomjs.org">phantomjs</a> is installed, then compile the clojurescript to a single file <code>out/all.js</code>, then run the tests with <code>phantomjs test.js</code>.</p>
-<pre class='brush: javascript'>
-phantom.injectJs('jasmine/jasmine.js');
-phantom.injectJs('jasmine/ConsoleReporter.js');
-phantom.injectJs('out/all.js');
-
-var fs = require('fs');
-
-jasmine.getEnv().addReporter(
-    new jasmine.ConsoleReporter(
-      function(msg) { fs.write('/dev/stdout', msg, 'w'); },
-      function(runner) {
-        try {
-          if (runner.results().passed()) phantom.exit(0);
-          else phantom.exit(1);
-        } catch (e) {
-          phantom.exit(1);
-        }
-      }));
-jasmine.getEnv().execute();</pre>
-</section></article><div id='code-anchors'><ul><li>project.clj<br><ul><li><a href='#project.clj/spaghetti'>spaghetti</a></li></ul></li><li>src/me/panzoo/spaghetti.cljs<br><ul><li><a href='#src/me/panzoo/spaghetti.cljs/StateMachine'>StateMachine</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/act'>act</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/act!'>act!</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/add-state'>add-state</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/add-state!'>add-state!</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/check-state-machine'>check-state-machine</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/make!fn'>make!fn</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/remove-state'>remove-state</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/remove-state!'>remove-state!</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/restart'>restart</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/restart!'>restart!</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/state-machine'>state-machine</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/unwatch-all'>unwatch-all</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/unwatch-ref'>unwatch-ref</a></li><li><a href='#src/me/panzoo/spaghetti.cljs/watch-ref'>watch-ref</a></li></ul></li></ul></div><script> ;(function()
-{
-	// CommonJS
-	typeof(require) != 'undefined' ? SyntaxHighlighter = require('shCore').SyntaxHighlighter : null;
-
-	function Brush()
-	{
-		var keywords =	'break case catch continue ' +
-						'default delete do else false  ' +
-						'for function if in instanceof ' +
-						'new null return super switch ' +
-						'this throw true try typeof var while with'
-						;
-
-		var r = SyntaxHighlighter.regexLib;
-		
-		this.regexList = [
-			{ regex: r.multiLineDoubleQuotedString,					css: 'string' },			// double quoted strings
-			{ regex: r.multiLineSingleQuotedString,					css: 'string' },			// single quoted strings
-			{ regex: r.singleLineCComments,							css: 'comments' },			// one line comments
-			{ regex: r.multiLineCComments,							css: 'comments' },			// multiline comments
-			{ regex: /\s*#.*/gm,									css: 'preprocessor' },		// preprocessor tags like #region and #endregion
-			{ regex: new RegExp(this.getKeywords(keywords), 'gm'),	css: 'keyword' }			// keywords
-			];
-	
-		this.forHtmlScript(r.scriptScriptTags);
-	};
-
-	Brush.prototype	= new SyntaxHighlighter.Highlighter();
-	Brush.aliases	= ['js', 'jscript', 'javascript'];
-
-	SyntaxHighlighter.brushes.JScript = Brush;
-
-	// CommonJS
-	typeof(exports) != 'undefined' ? exports.Brush = Brush : null;
-})();
- </script>
-<script> // (inc clojure-brush) ;; an improved SyntaxHighlighter brush for clojure
+</section></article><div id='code-anchors'><ul><li>project.clj<br><ul><li><a href='#project.clj/spaghetti'>spaghetti</a></li></ul></li><li>src/spaghetti.cljs<br><ul><li><a href='#src/spaghetti.cljs/StateMachine'>StateMachine</a></li><li><a href='#src/spaghetti.cljs/act'>act</a></li><li><a href='#src/spaghetti.cljs/act!'>act!</a></li><li><a href='#src/spaghetti.cljs/add-state'>add-state</a></li><li><a href='#src/spaghetti.cljs/add-state!'>add-state!</a></li><li><a href='#src/spaghetti.cljs/check-state-machine'>check-state-machine</a></li><li><a href='#src/spaghetti.cljs/make!fn'>make!fn</a></li><li><a href='#src/spaghetti.cljs/remove-state'>remove-state</a></li><li><a href='#src/spaghetti.cljs/remove-state!'>remove-state!</a></li><li><a href='#src/spaghetti.cljs/restart'>restart</a></li><li><a href='#src/spaghetti.cljs/restart!'>restart!</a></li><li><a href='#src/spaghetti.cljs/state-machine'>state-machine</a></li><li><a href='#src/spaghetti.cljs/unwatch-all'>unwatch-all</a></li><li><a href='#src/spaghetti.cljs/unwatch-ref'>unwatch-ref</a></li><li><a href='#src/spaghetti.cljs/watch-ref'>watch-ref</a></li></ul></li></ul></div><script> // (inc clojure-brush) ;; an improved SyntaxHighlighter brush for clojure
 //
 // Copyright (C) 2011 Andrew Brehaut
 //
