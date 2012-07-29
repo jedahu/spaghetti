@@ -5,11 +5,14 @@
 
   :description "Finite State Machine"
 
-  :dev-dependencies
-  [[menodora "0.1.4"]]
+  :profiles
+  {:dev
+   {:dependencies
+    [[menodora "0.1.4"]
+     [cst "0.3.1"]]}}
 
   :plugins
-  [[lein-cst "0.2.4"]]
+  [[lein-cst "0.3.1"]]
 
   :story
   {:output "doc/index.html"}
