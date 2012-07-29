@@ -9,16 +9,7 @@
 ;; event loop. The solution this code uses is to store the data structure in an
 ;; atom and generate mutating equivalents for the pure functions that operate on
 ;; it.
-(ns spaghetti
-
-;; Only `cljs.core` is required by the production code.
-
-m;<?
-;; The tests use a few macros.
-  (:use-macros
-    [me.panzoo.jasmine :only (check it expect expect-not before)])
-;;?>
-  )
+(ns spaghetti)
 
 
 ;; ## Helpers
@@ -118,18 +109,6 @@ m;<?
 ;; `::restart` from a `:from-state` of `start`
       (restart :state start))))
 
-;;<?
-(defn check-state-machine
-  []
-  (check "state-machine"
-    (let [graph {:on {:down :off}}
-          fsm (state-machine :on graph)]
-      (it "should not modify the graph"
-        (expect toEqual graph (:graph fsm)))
-      (it "should start in the start state"
-        (expect toEqual :on (:state fsm))))))
-;;?>
-
 
 ;; ## Actions on a state machine
 ;;
@@ -166,12 +145,6 @@ m;<?
 
 ;; `restart!` is a mutating variant of `restart`.
 (def restart! (make!fn restart))
-
-;;<?
-;; The [[state-machine]] function is tested here because it requires [[restart]]
-;; to be defined.
-(check-state-machine)
-;;?>
 
 
 ;; ### Act
@@ -210,31 +183,6 @@ m;<?
 
 ;; `act!` is a mutating variant of `act`.
 (def act! (make!fn act))
-
-;;<?
-(check "act"
-  (let [err (atom nil)
-        fsm (state-machine
-              :on
-              {:on {:down :off}
-               :off {:up :on}}
-              :callback #(conj (or (:data %) [])
-                               [(:from-state %)
-                                (:transition %)
-                                (:to-state %)])
-              :missing #(reset! err [(:from-state %)
-                                     (:transition %)
-                                     (:to-state %)]))]
-    (it "should transition"
-      (expect toEqual :off (:state (act fsm :down))))
-    (it "should give :callback the correct args"
-      (expect toEqual
-              [[:on :down :off] [:off :up :on]]
-              (-> fsm (act :down) (act :up) :data)))
-    (it "should call :missing on unknown transitions"
-      (expect toEqual :on (:state (act fsm :unknown)))
-      (expect toEqual [:on :unknown nil] @err))))
-;;?>
 
 
 ;; ## Event driven transitions
@@ -292,36 +240,6 @@ m;<?
                            #(doseq [r %] (remove-watch r (:gensym fsm))))))
   nil)
 
-;;<?
-(check "watch unwatch"
-  (let [fsm (state-machine
-              :on
-              {:on {:down :off}
-               :off {:up :on}}
-              :callback #(:event %))
-        fsmr (atom fsm)
-        a (atom :x)]
-    (it "should store watch"
-      (watch-ref fsmr :down a)
-      (expect toBeTruthy ((:watchlist @fsmr) a)))
-    (it "should transition on watch change"
-      (reset! a :y)
-      (expect toEqual :off (:state @fsmr))
-      (expect toEqual :y (:data @fsmr)))
-    (it "should unwatch"
-      (watch-ref fsmr :up (atom :temp))
-      (unwatch-ref fsmr a)
-      (expect toBeFalsy ((:watchlist @fsmr) a))
-      (expect toEqual 1 (count (:watchlist @fsmr))))
-    (it "should unwatch all"
-      (unwatch-all fsmr)
-      (expect toEqual 0 (count (:watchlist @fsmr))))
-    (it "should not transition after unwatching"
-      (reset! a :z)
-      (expect toEqual :off (:state @fsmr))
-      (expect-not toEqual :z (:data @fsmr)))))
-;;?>
-
 
 ;; ## Modifying the graph
 ;;
@@ -351,32 +269,3 @@ m;<?
 
 ;; `remove-state!` is a mutating variant of `remove-state`.
 (def remove-state! (make!fn remove-state))
-
-;;<?
-(check "add remove state"
-  (let [fsm (state-machine
-              :one
-              {:one {:incr :two}
-               :two {:incr :three
-                     :decr :one}})]
-    (it "should add state"
-      (expect toEqual
-              {:incr :four}
-              (get-in (add-state fsm :three {:incr :four})
-                      [:graph :three])))
-    (it "should merge transitions"
-      (expect toEqual
-              {:incr :two :decr :zero}
-              (get-in (add-state fsm :one {:decr :zero})
-                      [:graph :one])))
-    (it "should remove state"
-      (expect toEqual
-              nil
-              (get-in (remove-state fsm :two)
-                      [:graph :two])))
-    (it "should dissoc transitions"
-      (expect toEqual
-              {:decr :one}
-              (get-in (remove-state fsm :two [:incr])
-                      [:graph :two])))))
-;;?>
