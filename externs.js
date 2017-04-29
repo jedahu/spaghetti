@@ -1,2 +1,2 @@
 var phantom;
-phantom.exit = function(x) {};
+phantom.exit = x => {};

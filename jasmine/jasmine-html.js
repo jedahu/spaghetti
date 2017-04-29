@@ -29,7 +29,8 @@ jasmine.TrivialReporter.prototype.createDom = function(type, attrs, childrenVarA
 };
 
 jasmine.TrivialReporter.prototype.reportRunnerStarting = function(runner) {
-  var showPassed, showSkipped;
+  var showPassed;
+  var showSkipped;
 
   this.outerDiv = this.createDom('div', { className: 'jasmine_reporter' },
       this.createDom('div', { className: 'banner' },
@@ -70,7 +71,7 @@ jasmine.TrivialReporter.prototype.reportRunnerStarting = function(runner) {
   this.startedAt = new Date();
 
   var self = this;
-  showPassed.onclick = function(evt) {
+  showPassed.onclick = evt => {
     if (showPassed.checked) {
       self.outerDiv.className += ' show-passed';
     } else {
@@ -78,7 +79,7 @@ jasmine.TrivialReporter.prototype.reportRunnerStarting = function(runner) {
     }
   };
 
-  showSkipped.onclick = function(evt) {
+  showSkipped.onclick = evt => {
     if (showSkipped.checked) {
       self.outerDiv.className += ' show-skipped';
     } else {
@@ -160,13 +161,13 @@ jasmine.TrivialReporter.prototype.reportSpecResults = function(spec) {
   this.suiteDivs[spec.suite.id].appendChild(specDiv);
 };
 
-jasmine.TrivialReporter.prototype.log = function() {
+jasmine.TrivialReporter.prototype.log = function(...args) {
   var console = jasmine.getGlobal().console;
   if (console && console.log) {
     if (console.log.apply) {
-      console.log.apply(console, arguments);
+      console.log(...args);
     } else {
-      console.log(arguments); // ie fix: console.log.apply doesn't exist on ie
+      console.log(args); // ie fix: console.log.apply doesn't exist on ie
     }
   }
 };
